@@ -1,0 +1,57 @@
+#include <stdio.h>
+#include "rezervacija.h"
+
+void prikaziIzbornik() {
+    printf("\n1. Dodaj rezervaciju\n");
+    printf("2. Prikaži sve rezervacije\n");
+    printf("3. Izmijeni rezervaciju\n");
+    printf("4. Obriši rezervaciju\n");
+    printf("5. Prikaži rezervacije po broju noćenja\n");
+    printf("6. Izlaz\n");
+    printf("Odabir: ");
+}
+
+int main() {
+    ListaRezervacija lista;
+    inicijalizirajListu(&lista);
+    ucitajIzDatoteke(&lista);
+
+    int izbor;
+    do {
+        prikaziIzbornik();
+        scanf("%d", &izbor);
+
+        switch (izbor) {
+            case 1:
+                dodajRezervaciju(&lista);
+                spremiUDatoteku(&lista);
+                break;
+            case 2:
+                prikaziRezervacije(&lista);
+                break;
+            case 3:
+                azurirajRezervaciju(&lista);
+                spremiUDatoteku(&lista);
+                break;
+            case 4:
+                obrisiRezervaciju(&lista);
+                spremiUDatoteku(&lista);
+                break;
+            case 5: {
+                int cilj;
+                printf("Unesite broj noćenja za pretragu: ");
+                scanf("%d", &cilj);
+                binarnoPretraziPoNocenjima(&lista, cilj);
+                break;
+            }
+            case 6:
+                printf("Izlaz iz programa.\n");
+                break;
+            default:
+                printf("Neispravan odabir.\n");
+        }
+    } while (izbor != 6);
+
+    oslobodiListu(&lista);
+    return 0;
+}

@@ -1,0 +1,38 @@
+#ifndef REZERVACIJA_H
+#define REZERVACIJA_H
+
+#define MAKS_IME 50
+#define DATOTEKA rezervacije.bin
+
+typedef struct {
+    int id;
+    char imeGosta[MAKS_IME];
+    int brojNocenja;
+} Rezervacija;
+
+typedef struct {
+    Rezervacija niz;
+    int broj;
+    int kapacitet;
+} ListaRezervacija;
+
+ Upravljanje memorijom i listom
+void inicijalizirajListu(ListaRezervacija lista);
+void oslobodiListu(ListaRezervacija lista);
+void prosiriListu(ListaRezervacija lista);
+
+ CRUD funkcije
+void dodajRezervaciju(ListaRezervacija lista);
+void azurirajRezervaciju(ListaRezervacija lista);
+void obrisiRezervaciju(ListaRezervacija lista);
+void prikaziRezervacije(const ListaRezervacija lista);
+
+ Spremanje i učitavanje
+void spremiUDatoteku(const ListaRezervacija lista);
+void ucitajIzDatoteke(ListaRezervacija lista);
+
+ Pretraga i filtriranje
+void filtrirajPoNocenjima(const ListaRezervacija lista);
+void binarnoPretraziPoNocenjima(ListaRezervacija lista, int ciljano);
+
+#endif

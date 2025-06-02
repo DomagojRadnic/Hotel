@@ -1,0 +1,141 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "rezervacija.h"
+
+void inicijalizirajListu(ListaRezervacija *lista) {
+    lista->broj = 0;
+    lista->kapacitet = 10;
+    lista->niz = (Rezervacija *)malloc(sizeof(Rezervacija) * lista->kapacitet);
+}
+
+void oslobodiListu(ListaRezervacija *lista) {
+    free(lista->niz);
+}
+
+void prosiriListu(ListaRezervacija *lista) {
+    if (lista->broj >= lista->kapacitet) {
+        lista->kapacitet *= 2;
+        lista->niz = (Rezervacija *)realloc(lista->niz, sizeof(Rezervacija) * lista->kapacitet);
+    }
+}
+
+void spremiUDatoteku(const ListaRezervacija *lista) {
+    FILE *datoteka = fopen(DATOTEKA, "wb");
+    if (datoteka != NULL) {
+        fwrite(&lista->broj, sizeof(int), 1, datoteka);
+        fwrite(lista->niz, sizeof(Rezervacija), lista->broj, datoteka);
+        fclose(datoteka);
+        printf("Rezervacije su spremljene.\n");
+    } else {
+        printf("Greška pri spremanju.\n");
+    }
+}
+
+void ucitajIzDatoteke(ListaRezervacija *lista) {
+    FILE *datoteka = fopen(DATOTEKA, "rb");
+    if (datoteka != NULL) {
+        fread(&lista->broj, sizeof(int), 1, datoteka);
+        lista->kapacitet = lista->broj > 10 ? lista->broj : 10;
+        lista->niz = (Rezervacija *)realloc(lista->niz, sizeof(Rezervacija) * lista->kapacitet);
+        fread(lista->niz, sizeof(Rezervacija), lista->broj, datoteka);
+        fclose(datoteka);
+        printf("Rezervacije su učitane.\n");
+    } else {
+        printf("Nema datoteke za učitavanje.\n");
+    }
+}
+
+void dodajRezervaciju(ListaRezervacija *lista) {
+    prosiriListu(lista);
+    Rezervacija nova;
+    nova.id = lista->broj > 0 ? lista->niz[lista->broj - 1].id + 1 : 1;
+
+    printf("Unesite ime gosta: ");
+    scanf(" %49[^\n]", nova.imeGosta);
+    printf("Unesite broj noćenja: ");
+    scanf("%d", &nova.brojNocenja);
+
+    lista->niz[lista->broj++] = nova;
+    printf("Rezervacija dodana.\n");
+}
+
+void prikaziRezervacije(const ListaRezervacija *lista) {
+    printf("\n--- Popis rezervacija ---\n");
+    for (int i = 0; i < lista->broj; i++) {
+        printf("ID: %d | Gost: %s | Noćenja: %d\n",
+               lista->niz[i].id,
+               lista->niz[i].imeGosta,
+               lista->niz[i].brojNocenja);
+    }
+}
+
+void azurirajRezervaciju(ListaRezervacija *lista) {
+    int id;
+    printf("Unesite ID za ažuriranje: ");
+    scanf("%d", &id);
+
+    for (int i = 0; i < lista->broj; i++) {
+        if (lista->niz[i].id == id) {
+            printf("Novo ime gosta: ");
+            scanf(" %49[^\n]", lista->niz[i].imeGosta);
+            printf("Novi broj noćenja: ");
+            scanf("%d", &lista->niz[i].brojNocenja);
+            printf("Rezervacija ažurirana.\n");
+            return;
+        }
+    }
+    printf("Rezervacija nije pronađena.\n");
+}
+
+void obrisiRezervaciju(ListaRezervacija *lista) {
+    int id;
+    printf("Unesite ID za brisanje: ");
+    scanf("%d", &id);
+
+    for (int i = 0; i < lista->broj; i++) {
+        if (lista->niz[i].id == id) {
+            for (int j = i; j < lista->broj - 1; j++) {
+                lista->niz[j] = lista->niz[j + 1];
+            }
+            lista->broj--;
+            printf("Rezervacija obrisana.\n");
+            return;
+        }
+    }
+    printf("Rezervacija nije pronađena.\n");
+}
+
+void filtrirajPoNocenjima(const ListaRezervacija *lista) {
+    int minNocenja;
+    printf("Unesite minimalan broj noćenja: ");
+    scanf("%d", &minNocenja);
+
+    printf("Rezervacije s minimalno %d noćenja:\n", minNocenja);
+    for (int i = 0; i < lista->broj; i++) {
+        if (lista->niz[i].brojNocenja >= minNocenja) {
+            printf("ID: %d | Gost: %s | Noćenja: %d\n",
+                   lista->niz[i].id,
+                   lista->niz[i].imeGosta,
+                   lista->niz[i].brojNocenja);
+        }
+    }
+}
+
+int usporediPoNocenjima(const void *a, const void *b) {
+    return ((Rezervacija *)a)->brojNocenja - ((Rezervacija *)b)->brojNocenja;
+}
+
+void binarnoPretraziPoNocenjima(ListaRezervacija *lista, int ciljano) {
+    qsort(lista->niz, lista->broj, sizeof(Rezervacija), usporediPoNocenjima);
+
+    Rezervacija kljuc = {.brojNocenja = ciljano};
+    Rezervacija *rezultat = (Rezervacija *)bsearch(&kljuc, lista->niz, lista->broj, sizeof(Rezervacija), usporediPoNocenjima);
+
+    if (rezultat != NULL) {
+        printf("Pronađena rezervacija: ID: %d | Gost: %s | Noćenja: %d\n",
+               rezultat->id, rezultat->imeGosta, rezultat->brojNocenja);
+    } else {
+        printf("Nema rezervacije s %d noćenja.\n", ciljano);
+    }
+}
