@@ -1,58 +1,51 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
 #include "rezervacija.h"
 
-void prikaziIzbornik() {
-    printf("\n1. Dodaj rezervaciju\n");
-    printf("2. Prikaži sve rezervacije\n");
-    printf("3. Izmijeni rezervaciju\n");
-    printf("4. Obriši rezervaciju\n");
-    printf("5. Prikaži rezervacije po broju noćenja\n");
-    printf("6. Izlaz\n");
-    printf("Odabir: ");
-}
+Rezervacija* rezervacije = NULL;
+int brojRezervacija = 0;
 
 int main() {
-    ListaRezervacija lista;
-    inicijalizirajListu(&lista);
-    ucitajIzDatoteke(&lista);
-
     int izbor;
+    ucitajRezervacije(&rezervacije, &brojRezervacija);
+
     do {
-        prikaziIzbornik();
+        printf("\n--- HOTELSKI MENI ---\n");
+        printf("1. Dodaj rezervaciju\n");
+        printf("2. Prikazi rezervacije\n");
+        printf("3. Azuriraj rezervaciju\n");
+        printf("4. Obrisi rezervaciju\n");
+        printf("5. Sortiraj po nocenjima\n");
+        printf("6. Pretrazi po broju sobe\n");
+        printf("7. Izlaz\n");
+        printf("Izbor: ");
         scanf("%d", &izbor);
 
         switch (izbor) {
-            case 1:
-                dodajRezervaciju(&lista);
-                spremiUDatoteku(&lista);
-                break;
-            case 2:
-                prikaziRezervacije(&lista);
-                break;
-            case 3:
-                azurirajRezervaciju(&lista);
-                spremiUDatoteku(&lista);
-                break;
-            case 4:
-                obrisiRezervaciju(&lista);
-                spremiUDatoteku(&lista);
-                break;
-            case 5: {
-                int cilj;
-                printf("Unesite broj noćenja za pretragu: ");
-                scanf("%d", &cilj);
-                binarnoPretraziPoNocenjima(&lista, cilj);
-                break;
-            }
-            case 6:
-                printf("Izlaz iz programa.\n");
-                break;
-            default:
-                printf("Neispravan odabir.\n");
+        case 1: dodajRezervaciju(&rezervacije, &brojRezervacija); break;
+        case 2: prikaziRezervacije(rezervacije, brojRezervacija); break;
+        case 3: azurirajRezervaciju(rezervacije, brojRezervacija); break;
+        case 4: obrisiRezervaciju(rezervacije, &brojRezervacija); break;
+        case 5: sortirajPoNocenjima(rezervacije, brojRezervacija); break;
+        case 6: {
+            int brojSobe;
+            printf("Unesite broj sobe: ");
+            scanf("%d", &brojSobe);
+            pretraziPoSobi(rezervacije, brojRezervacija, brojSobe);
+            break;
         }
-    } while (izbor != 6);
+        case 7:
+            spremiRezervacije(rezervacije, brojRezervacija);
+            ocistiMemoriju(&rezervacije);
+            printf("Izlaz iz programa.\n");
+            break;
+        default:
+            printf("Nepoznata opcija.\n");
+        }
+    } while (izbor != 7);
 
-    oslobodiListu(&lista);
     return 0;
 }
