@@ -1,34 +1,30 @@
 #ifndef REZERVACIJA_H
 #define REZERVACIJA_H
 
-#define MAKS_IME 50
-#define DATOTEKA rezervacije.bin
+#include <time.h>
+#define MAX_SOBA 100
+#define IME_MAX 100
+#define REZERVACIJE_DAT "rezervacije.dat"
 
 typedef struct {
-    int id;
-    char imeGosta[MAKS_IME];
+    int brojSobe;
+    char imeGosta[IME_MAX];
     int brojNocenja;
+    time_t datumDolaska;
+    int aktivna;
 } Rezervacija;
 
-typedef struct {
-    Rezervacija niz;
-    int broj;
-    int kapacitet;
-} ListaRezervacija;
-
-void inicijalizirajListu(ListaRezervacija lista);
-void oslobodiListu(ListaRezervacija lista);
-void prosiriListu(ListaRezervacija lista);
-
-void dodajRezervaciju(ListaRezervacija lista);
-void azurirajRezervaciju(ListaRezervacija lista);
-void obrisiRezervaciju(ListaRezervacija lista);
-void prikaziRezervacije(const ListaRezervacija lista);
-
-void spremiUDatoteku(const ListaRezervacija lista);
-void ucitajIzDatoteke(ListaRezervacija lista);
-
-void filtrirajPoNocenjima(const ListaRezervacija lista);
-void binarnoPretraziPoNocenjima(ListaRezervacija lista, int ciljano);
+void ucitajRezervacije(Rezervacija** rez, int* n);
+void spremiRezervacije(Rezervacija* rez, int n);
+void dodajRezervaciju(Rezervacija** rez, int* n);
+void prikaziRezervacije(Rezervacija* rez, int n);
+void azurirajRezervaciju(Rezervacija* rez, int n);
+void obrisiRezervaciju(Rezervacija* rez, int* n);
+void sortirajPoNocenjima(Rezervacija* rez, int n);
+void pretraziPoSobi(Rezervacija* rez, int n, int brojSobe);
+Rezervacija* rekurzivnoTraziSobu(Rezervacija* rez, int n, int brojSobe);
+void ocistiMemoriju(Rezervacija** rez);
+void ukloniDatoteku(const char* imeDatoteke);
+void preimenujDatoteku(const char* stariNaziv, const char* noviNaziv);
 
 #endif
