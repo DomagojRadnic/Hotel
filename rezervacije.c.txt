@@ -2,141 +2,254 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <errno.h>
 #include "rezervacija.h"
 
-void inicijalizirajListu(ListaRezervacija *lista) {
-    lista->broj = 0;
-    lista->kapacitet = 10;
-    lista->niz = (Rezervacija *)malloc(sizeof(Rezervacija) * lista->kapacitet);
+static Rezervacija* rezervacije = NULL;
+static int brojRezervacija = 0;
+
+inline int validirajBrojSobe(int brojSobe) {
+    return brojSobe >= 1 && brojSobe <= MAX_SOBA;
 }
 
-void oslobodiListu(ListaRezervacija *lista) {
-    free(lista->niz);
+inline int validirajBrojNocenja(int brojNocenja) {
+    return brojNocenja > 0;
 }
 
-void prosiriListu(ListaRezervacija *lista) {
-    if (lista->broj >= lista->kapacitet) {
-        lista->kapacitet *= 2;
-        lista->niz = (Rezervacija *)realloc(lista->niz, sizeof(Rezervacija) * lista->kapacitet);
+void ucitajRezervacije(Rezervacija** rez, int* n) {
+    FILE* fp = fopen(REZERVACIJE_DAT, "rb");
+    if (!fp) {
+        if (errno != ENOENT) perror("Greska pri otvaranju datoteke");
+        *rez = NULL;
+        *n = 0;
+        return;
     }
-}
 
-void spremiUDatoteku(const ListaRezervacija *lista) {
-    FILE *datoteka = fopen(DATOTEKA, "wb");
-    if (datoteka != NULL) {
-        fwrite(&lista->broj, sizeof(int), 1, datoteka);
-        fwrite(lista->niz, sizeof(Rezervacija), lista->broj, datoteka);
-        fclose(datoteka);
-        printf("Rezervacije su spremljene.\n");
-    } else {
-        printf("Greška pri spremanju.\n");
+    fseek(fp, 0, SEEK_END);
+    long velicina = ftell(fp);
+    rewind(fp);
+
+    *n = (int)(velicina / sizeof(Rezervacija));
+    *rez = NULL;
+
+    if (*n > 0) {
+        *rez = (Rezervacija*)malloc(sizeof(Rezervacija) * (*n));
+        if (!*rez) {
+            perror("Neuspjela alokacija memorije");
+            fclose(fp);
+            *n = 0;
+            return;
+        }
+        size_t procitano = fread(*rez, sizeof(Rezervacija), *n, fp);
+        if (procitano != (size_t)(*n)) {
+            perror("Greska pri citanju datoteke");
+            free(*rez);
+            *rez = NULL;
+            *n = 0;
+        }
     }
+    fclose(fp);
 }
 
-void ucitajIzDatoteke(ListaRezervacija *lista) {
-    FILE *datoteka = fopen(DATOTEKA, "rb");
-    if (datoteka != NULL) {
-        fread(&lista->broj, sizeof(int), 1, datoteka);
-        lista->kapacitet = lista->broj > 10 ? lista->broj : 10;
-        lista->niz = (Rezervacija *)realloc(lista->niz, sizeof(Rezervacija) * lista->kapacitet);
-        fread(lista->niz, sizeof(Rezervacija), lista->broj, datoteka);
-        fclose(datoteka);
-        printf("Rezervacije su učitane.\n");
-    } else {
-        printf("Nema datoteke za učitavanje.\n");
+void spremiRezervacije(Rezervacija* rez, int n) {
+    FILE* fp = fopen(REZERVACIJE_DAT, "wb");
+    if (!fp) {
+        perror("Greska pri otvaranju datoteke za pisanje");
+        return;
     }
+    size_t zapisano = fwrite(rez, sizeof(Rezervacija), n, fp);
+    if (zapisano != (size_t)n) perror("Greska pri pisanju u datoteku");
+    fclose(fp);
 }
 
-void dodajRezervaciju(ListaRezervacija *lista) {
-    prosiriListu(lista);
-    Rezervacija nova;
-    nova.id = lista->broj > 0 ? lista->niz[lista->broj - 1].id + 1 : 1;
+static int rezervacijaPostoji(Rezervacija* rez, int n, int brojSobe) {
+    for (int i = 0; i < n; i++) {
+        if (rez[i].brojSobe == brojSobe && rez[i].aktivna) return 1;
+    }
+    return 0;
+}
 
+void dodajRezervaciju(Rezervacija** rez, int* n) {
+    int aktivne = 0;
+    for (int i = 0; i < *n; i++) {
+        if ((*rez)[i].aktivna) aktivne++;
+    }
+
+    if (aktivne >= MAX_SOBA) {
+        printf("Hotel je popunjen.\n");
+        return;
+    }
+
+    int brojSobe;
+    printf("Unesite broj sobe (1-%d): ", MAX_SOBA);
+    while (scanf("%d", &brojSobe) != 1 || !validirajBrojSobe(brojSobe)) {
+        while (getchar() != '\n');
+        printf("Neispravan broj sobe. Pokusajte ponovno: ");
+    }
+
+    if (rezervacijaPostoji(*rez, *n, brojSobe)) {
+        printf("Soba %d je vec rezervirana.\n", brojSobe);
+        return;
+    }
+
+    char ime[IME_MAX];
     printf("Unesite ime gosta: ");
-    scanf(" %49[^\n]", nova.imeGosta);
-    printf("Unesite broj noćenja: ");
-    scanf("%d", &nova.brojNocenja);
+    while (getchar() != '\n');
+    fgets(ime, IME_MAX, stdin);
+    ime[strcspn(ime, "\n")] = 0;
 
-    lista->niz[lista->broj++] = nova;
-    printf("Rezervacija dodana.\n");
+    int brojNocenja;
+    printf("Unesite broj nocenja: ");
+    while (scanf("%d", &brojNocenja) != 1 || !validirajBrojNocenja(brojNocenja)) {
+        while (getchar() != '\n');
+        printf("Neispravan broj nocenja. Pokusajte ponovno: ");
+    }
+
+    Rezervacija nova = { 0 };
+    nova.brojSobe = brojSobe;
+    strncpy(nova.imeGosta, ime, IME_MAX - 1);
+    nova.imeGosta[IME_MAX - 1] = '\0';
+    nova.brojNocenja = brojNocenja;
+    nova.datumDolaska = time(NULL);
+    nova.aktivna = 1;
+
+    Rezervacija* temp = realloc(*rez, sizeof(Rezervacija) * (*n + 1));
+    if (!temp) {
+        perror("Neuspjela realokacija memorije");
+        return;
+    }
+    *rez = temp;
+    (*rez)[*n] = nova;
+    (*n)++;
+
+    spremiRezervacije(*rez, *n);
+    printf("Rezervacija uspjesno dodana.\n");
 }
 
-void prikaziRezervacije(const ListaRezervacija *lista) {
-    printf("\n--- Popis rezervacija ---\n");
-    for (int i = 0; i < lista->broj; i++) {
-        printf("ID: %d | Gost: %s | Noćenja: %d\n",
-               lista->niz[i].id,
-               lista->niz[i].imeGosta,
-               lista->niz[i].brojNocenja);
+void prikaziRezervacije(Rezervacija* rez, int n) {
+    if (n == 0) {
+        printf("Nema rezervacija.\n");
+        return;
+    }
+    printf("Lista rezervacija:\n");
+    for (int i = 0; i < n; i++) {
+        if (rez[i].aktivna) {
+            struct tm* tm = localtime(&rez[i].datumDolaska);
+            char buf[20];
+            strftime(buf, sizeof(buf), "%Y-%m-%d", tm);
+            printf("Soba %d: %s, %d nocenja, datum dolaska: %s\n",
+                rez[i].brojSobe, rez[i].imeGosta, rez[i].brojNocenja, buf);
+        }
     }
 }
 
-void azurirajRezervaciju(ListaRezervacija *lista) {
-    int id;
-    printf("Unesite ID za ažuriranje: ");
-    scanf("%d", &id);
+void azurirajRezervaciju(Rezervacija* rez, int n) {
+    int brojSobe;
+    printf("Unesite broj sobe za azuriranje: ");
+    while (scanf("%d", &brojSobe) != 1 || !validirajBrojSobe(brojSobe)) {
+        while (getchar() != '\n');
+        printf("Neispravan broj sobe. Pokusajte ponovno: ");
+    }
 
-    for (int i = 0; i < lista->broj; i++) {
-        if (lista->niz[i].id == id) {
-            printf("Novo ime gosta: ");
-            scanf(" %49[^\n]", lista->niz[i].imeGosta);
-            printf("Novi broj noćenja: ");
-            scanf("%d", &lista->niz[i].brojNocenja);
-            printf("Rezervacija ažurirana.\n");
+    Rezervacija* rezervacija = rekurzivnoTraziSobu(rez, n, brojSobe);
+    if (!rezervacija || !rezervacija->aktivna) {
+        printf("Rezervacija za sobu %d ne postoji.\n", brojSobe);
+        return;
+    }
+
+    char ime[IME_MAX];
+    printf("Unesite novo ime gosta: ");
+    while (getchar() != '\n');
+    fgets(ime, IME_MAX, stdin);
+    ime[strcspn(ime, "\n")] = 0;
+
+    int brojNocenja;
+    printf("Unesite novi broj nocenja: ");
+    while (scanf("%d", &brojNocenja) != 1 || !validirajBrojNocenja(brojNocenja)) {
+        while (getchar() != '\n');
+        printf("Neispravan broj nocenja. Pokusajte ponovno: ");
+    }
+
+    strncpy(rezervacija->imeGosta, ime, IME_MAX - 1);
+    rezervacija->imeGosta[IME_MAX - 1] = '\0';
+    rezervacija->brojNocenja = brojNocenja;
+
+    spremiRezervacije(rez, n);
+    printf("Rezervacija uspjesno azurirana.\n");
+}
+
+void obrisiRezervaciju(Rezervacija* rez, int* n) {
+    int brojSobe;
+    printf("Unesite broj sobe za brisanje rezervacije: ");
+    while (scanf("%d", &brojSobe) != 1 || !validirajBrojSobe(brojSobe)) {
+        while (getchar() != '\n');
+        printf("Neispravan broj sobe. Pokusajte ponovno: ");
+    }
+
+    for (int i = 0; i < *n; i++) {
+        if (rez[i].brojSobe == brojSobe && rez[i].aktivna) {
+            rez[i].aktivna = 0;
+            spremiRezervacije(rez, *n);
+            printf("Rezervacija za sobu %d je obrisana.\n", brojSobe);
             return;
         }
     }
-    printf("Rezervacija nije pronađena.\n");
+    printf("Rezervacija za sobu %d nije pronadjena.\n", brojSobe);
 }
 
-void obrisiRezervaciju(ListaRezervacija *lista) {
-    int id;
-    printf("Unesite ID za brisanje: ");
-    scanf("%d", &id);
+int usporediNocenja(const void* a, const void* b) {
+    const Rezervacija* ra = (const Rezervacija*)a;
+    const Rezervacija* rb = (const Rezervacija*)b;
+    return ra->brojNocenja - rb->brojNocenja;
+}
 
-    for (int i = 0; i < lista->broj; i++) {
-        if (lista->niz[i].id == id) {
-            for (int j = i; j < lista->broj - 1; j++) {
-                lista->niz[j] = lista->niz[j + 1];
-            }
-            lista->broj--;
-            printf("Rezervacija obrisana.\n");
-            return;
-        }
+void sortirajPoNocenjima(Rezervacija* rez, int n) {
+    qsort(rez, n, sizeof(Rezervacija), usporediNocenja);
+    printf("Rezervacije su sortirane po broju nocenja.\n");
+}
+
+Rezervacija* rekurzivnoTraziSobu(Rezervacija* rez, int n, int brojSobe) {
+    if (n <= 0) return NULL;
+    if (rez->brojSobe == brojSobe && rez->aktivna) return rez;
+    return rekurzivnoTraziSobu(rez + 1, n - 1, brojSobe);
+}
+
+void pretraziPoSobi(Rezervacija* rez, int n, int brojSobe) {
+    Rezervacija* r = rekurzivnoTraziSobu(rez, n, brojSobe);
+    if (r) {
+        printf("Pronasli ste rezervaciju za sobu %d:\n", brojSobe);
+        struct tm* tm = localtime(&r->datumDolaska);
+        char buf[20];
+        strftime(buf, sizeof(buf), "%Y-%m-%d", tm);
+        printf("Gost: %s, broj nocenja: %d, datum dolaska: %s\n", r->imeGosta, r->brojNocenja, buf);
     }
-    printf("Rezervacija nije pronađena.\n");
-}
-
-void filtrirajPoNocenjima(const ListaRezervacija *lista) {
-    int minNocenja;
-    printf("Unesite minimalan broj noćenja: ");
-    scanf("%d", &minNocenja);
-
-    printf("Rezervacije s minimalno %d noćenja:\n", minNocenja);
-    for (int i = 0; i < lista->broj; i++) {
-        if (lista->niz[i].brojNocenja >= minNocenja) {
-            printf("ID: %d | Gost: %s | Noćenja: %d\n",
-                   lista->niz[i].id,
-                   lista->niz[i].imeGosta,
-                   lista->niz[i].brojNocenja);
-        }
+    else {
+        printf("Nema rezervacije za sobu %d.\n", brojSobe);
     }
 }
 
-int usporediPoNocenjima(const void *a, const void *b) {
-    return ((Rezervacija *)a)->brojNocenja - ((Rezervacija *)b)->brojNocenja;
+void ocistiMemoriju(Rezervacija** rez) {
+    if (rez && *rez) {
+        free(*rez);
+        *rez = NULL;
+    }
 }
 
-void binarnoPretraziPoNocenjima(ListaRezervacija *lista, int ciljano) {
-    qsort(lista->niz, lista->broj, sizeof(Rezervacija), usporediPoNocenjima);
+void ukloniDatoteku(const char* imeDatoteke) {
+    if (remove(imeDatoteke) == 0) {
+        printf("Datoteka %s je uspjesno obrisana.\n", imeDatoteke);
+    }
+    else {
+        perror("Greska prilikom brisanja datoteke");
+    }
+}
 
-    Rezervacija kljuc = {.brojNocenja = ciljano};
-    Rezervacija *rezultat = (Rezervacija *)bsearch(&kljuc, lista->niz, lista->broj, sizeof(Rezervacija), usporediPoNocenjima);
-
-    if (rezultat != NULL) {
-        printf("Pronađena rezervacija: ID: %d | Gost: %s | Noćenja: %d\n",
-               rezultat->id, rezultat->imeGosta, rezultat->brojNocenja);
-    } else {
-        printf("Nema rezervacije s %d noćenja.\n", ciljano);
+void preimenujDatoteku(const char* stariNaziv, const char* noviNaziv) {
+    if (rename(stariNaziv, noviNaziv) == 0) {
+        printf("Datoteka %s je preimenovana u %s.\n", stariNaziv, noviNaziv);
+    }
+    else {
+        perror("Greska prilikom preimenovanja datoteke");
     }
 }
