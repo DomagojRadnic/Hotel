@@ -6,8 +6,8 @@
 #include <errno.h>
 #include "rezervacija.h"
 
-static Rezervacija* rezervacije = NULL;
-static int brojRezervacija = 0;
+Rezervacija* rezervacije = NULL;
+int brojRezervacija = 0;
 
 inline int validirajBrojSobe(int brojSobe) {
     return brojSobe >= 1 && brojSobe <= MAX_SOBA;
