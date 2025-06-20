@@ -2,6 +2,7 @@
 #define REZERVACIJA_H
 
 #include <time.h>
+
 #define MAX_SOBA 100
 #define IME_MAX 100
 #define REZERVACIJE_DAT "rezervacije.dat"
@@ -13,6 +14,19 @@ typedef struct {
     time_t datumDolaska;
     int aktivna;
 } Rezervacija;
+
+typedef enum {
+    DODAJ_REZERVACIJU = 1,
+    PRIKAZI_REZERVACIJE,
+    AZURIRAJ_REZERVACIJU,
+    OBRISI_REZERVACIJU,
+    SORTIRAJ_PO_NOCENJIMA,
+    PRETRAZI_PO_SOBI,
+    IZLAZ
+} MeniOpcije;
+
+extern Rezervacija* rezervacije;
+extern int brojRezervacija;
 
 void ucitajRezervacije(Rezervacija** rez, int* n);
 void spremiRezervacije(Rezervacija* rez, int n);
